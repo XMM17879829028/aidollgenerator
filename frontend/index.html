@@ -1,0 +1,1249 @@
+<!-- ai-doll_prompt_generator/frontend/index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Doll Prompt Generator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        .container-option {
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .container-option:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        .container-option.selected {
+            border-color: #3b82f6;
+        }
+        #particles-js {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .accordion {
+            border-radius: 0.5rem;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 1rem;
+            background-color: rgba(55, 65, 81, 0.7);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        .accordion-header:hover {
+            background-color: rgba(75, 85, 99, 0.7);
+        }
+        .accordion-content {
+            background-color: rgba(31, 41, 55, 0.7);
+            padding: 1rem;
+            display: none;
+        }
+        .accordion-content.active {
+            display: block;
+        }
+        .tab-container {
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid rgba(75, 85, 99, 0.7);
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            background-color: rgba(31, 41, 55, 0.7);
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: rgba(59, 130, 246, 0.2);
+            border-bottom: 2px solid #3b82f6;
+        }
+        .tab-content {
+            padding: 1rem;
+            background-color: rgba(31, 41, 55, 0.7);
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Hide scrollbar for horizontal nav on mobile */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @media (max-width: 640px) {
+            /* Mobile: horizontal scroll for container options */
+            .container-selector { display: flex; overflow-x: auto; }
+            .container-selector .container-option { flex: 0 0 auto; }
+        }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+                AI Doll Prompt Generator
+            </h1>
+            <p class="text-gray-300">Easily create high-quality AI Doll image prompts</p>
+        </header>
+
+        <div class="bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl p-6 shadow-xl">
+            <form id="promptForm" class="space-y-6">
+                <!-- 全局随机按钮 -->
+                <div class="flex justify-center mb-4">
+                    <button type="button" onclick="randomizeAll()" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-medium text-white hover:from-blue-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+                        <i class="fas fa-dice-d20 mr-2"></i> Randomize All Options
+                    </button>
+                </div>
+
+                <!-- 主选项卡导航 -->
+                <div class="tab-container">
+                    <div class="tab-buttons flex overflow-x-auto hide-scrollbar whitespace-nowrap">
+                        <div class="tab-button active" data-tab="character-tab">
+                            <i class="fas fa-user mr-2"></i> Character
+                        </div>
+                        <div class="tab-button flex-shrink-0" data-tab="container-tab">
+                            <i class="fas fa-cube mr-2"></i> Container
+                        </div>
+                        <div class="tab-button flex-shrink-0" data-tab="scene-tab">
+                            <i class="fas fa-image mr-2"></i> Scene
+                        </div>
+                        <div class="tab-button flex-shrink-0" data-tab="graphics-tab">
+                            <i class="fas fa-camera mr-2"></i> Image Style
+                        </div>
+                    </div>
+                    
+                    <!-- 角色选项卡 -->
+                    <div id="character-tab" class="tab-content active">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="characterStyle" class="block text-sm font-medium text-gray-300 mb-2">Character Style</label>
+                                <div class="flex">
+                                    <input type="text" id="characterStyle" name="characterStyle" list="styleOptions" placeholder="e.g.: doctor, nurse, teacher, student" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="randomSelect('characterStyle', 'styleOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
+                                <datalist id="styleOptions">
+                                    <option value="doctor"></option>
+                                    <option value="nurse"></option>
+                                    <option value="teacher"></option>
+                                    <option value="student"></option>
+                                    <option value="construction worker"></option>
+                                    <option value="chef"></option>
+                                    <option value="police officer"></option>
+                                    <option value="firefighter"></option>
+                                    <option value="scientist"></option>
+                                    <option value="artist"></option>
+                                    <option value="musician"></option>
+                                    <option value="athlete"></option>
+                                    <option value="business person"></option>
+                                    <option value="barista"></option>
+                                    <option value="gardener"></option>
+                                    <option value="streetwear designer"></option>
+                                    <option value="cyberpunk hacker"></option>
+                                    <option value="fantasy warrior"></option>
+                                    <option value="sci-fi explorer"></option>
+                                    <option value="anime schoolgirl"></option>
+                                    <option value="vintage detective"></option>
+                                    <option value="steampunk inventor"></option>
+                                    <option value="post-apocalyptic survivor"></option>
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label for="characterName" class="block text-sm font-medium text-gray-300 mb-2">Character Name</label>
+                                <input type="text" id="characterName" name="characterName" placeholder="e.g.: Nova, Cypher, Raven" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="clothingDescription" class="block text-sm font-medium text-gray-300 mb-2">Clothing Description</label>
+                            <div class="flex">
+                                <input type="text" id="clothingDescription" name="clothingDescription" list="clothingOptions" placeholder="e.g.: black leather jacket with neon accents, ripped jeans" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <button type="button" onclick="randomSelect('clothingDescription', 'clothingOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="clothingOptions">
+                                <optgroup label="Everyday Clothing">
+                                    <option value="modern streetwear with neon accents"></option>
+                                    <option value="casual elegant dress with flowing fabric"></option>
+                                    <option value="urban punk style with leather details"></option>
+                                </optgroup>
+                                <optgroup label="Fantasy Clothing">
+                                    <option value="magical robe with glowing runes"></option>
+                                    <option value="ethereal dress with starlight patterns"></option>
+                                    <option value="crystal armor with energy flows"></option>
+                                </optgroup>
+                                <optgroup label="Tech Clothing">
+                                    <option value="cyberpunk suit with LED trim"></option>
+                                    <option value="high-tech battle suit with holograms"></option>
+                                    <option value="futuristic dress with digital patterns"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="characterPose" class="block text-sm font-medium text-gray-300 mb-2">Character Pose</label>
+                            <div class="flex">
+                                <input type="text" id="characterPose" name="characterPose" list="poseOptions" placeholder="e.g.: sitting on a stack of books reading, holding a gun ready to fight" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <button type="button" onclick="randomSelect('characterPose', 'poseOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="poseOptions">
+                                <optgroup label="Professional Poses">
+                                    <option value="doctor examining patient with stethoscope"></option>
+                                    <option value="nurse holding medical chart"></option>
+                                    <option value="teacher writing on blackboard"></option>
+                                    <option value="student studying at desk"></option>
+                                    <option value="construction worker operating machinery"></option>
+                                    <option value="chef cooking in kitchen"></option>
+                                    <option value="police officer directing traffic"></option>
+                                    <option value="firefighter holding hose"></option>
+                                    <option value="scientist conducting experiment"></option>
+                                    <option value="artist painting on canvas"></option>
+                                    <option value="musician playing instrument"></option>
+                                    <option value="athlete in action pose"></option>
+                                    <option value="business person giving presentation"></option>
+                                    <option value="barista making coffee"></option>
+                                    <option value="gardener planting flowers"></option>
+                                </optgroup>
+                                <optgroup label="Everyday Poses">
+                                    <option value="reading a book in cozy chair"></option>
+                                    <option value="drinking coffee at cafe table"></option>
+                                    <option value="walking dog in park"></option>
+                                    <option value="riding bicycle on street"></option>
+                                    <option value="shopping with bags"></option>
+                                    <option value="taking photos with camera"></option>
+                                    <option value="exercising in gym"></option>
+                                    <option value="cooking in kitchen"></option>
+                                    <option value="gardening in backyard"></option>
+                                    <option value="relaxing on sofa"></option>
+                                </optgroup>
+                                <optgroup label="Social Poses">
+                                    <option value="talking on phone"></option>
+                                    <option value="chatting with friends"></option>
+                                    <option value="shaking hands with colleague"></option>
+                                    <option value="giving presentation"></option>
+                                    <option value="attending meeting"></option>
+                                    <option value="having lunch with coworkers"></option>
+                                    <option value="teaching students"></option>
+                                    <option value="helping customer"></option>
+                                    <option value="working in team"></option>
+                                    <option value="celebrating success"></option>
+                                </optgroup>
+                                <optgroup label="Standing Poses">
+                                    <option value="confident standing pose, hands on hips"></option>
+                                    <option value="elegant standing pose, one hand raised"></option>
+                                    <option value="battle stance, ready to fight"></option>
+                                </optgroup>
+                                <optgroup label="Sitting Poses">
+                                    <option value="sitting gracefully on a chair"></option>
+                                    <option value="sitting cross-legged on the floor"></option>
+                                    <option value="sitting on a floating crystal"></option>
+                                </optgroup>
+                                <optgroup label="Action Poses">
+                                    <option value="dynamic running pose"></option>
+                                    <option value="mid-jump with flowing clothes"></option>
+                                    <option value="spell casting pose"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="accessories" class="block text-sm font-medium text-gray-300 mb-2">Accessories</label>
+                            <div class="flex">
+                                <textarea id="accessories" name="accessories" rows="2" list="accessoryOptions" placeholder="e.g.: smart watch, holographic tablet, vintage headphones, mechanical backpack" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <button type="button" onclick="randomSelect('accessories', 'accessoryOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="accessoryOptions">
+                                <optgroup label="科技配件">
+                                    <option value="holographic display watch, augmented reality glasses"></option>
+                                    <option value="cyber implants, digital interface"></option>
+                                    <option value="energy core backpack, plasma shield"></option>
+                                </optgroup>
+                                <optgroup label="魔法配件">
+                                    <option value="crystal staff, magical grimoire"></option>
+                                    <option value="enchanted jewelry, runic symbols"></option>
+                                    <option value="floating familiar, magic potions"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+                    </div>
+                    
+                    <!-- 容器选项卡 -->
+                    <div id="container-tab" class="tab-content">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Container Type</label>
+                            <div class="container-selector hide-scrollbar">
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="crystal orb">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">🔮</div>
+                                        <div class="text-sm">Crystal Orb</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="display case">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">📦</div>
+                                        <div class="text-sm">Display Case</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="acrylic cube">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">🧊</div>
+                                        <div class="text-sm">Acrylic Cube</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="glass dome">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">🏺</div>
+                                        <div class="text-sm">Glass Dome</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="wooden crate">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">🪵</div>
+                                        <div class="text-sm">Wooden Crate</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="metal capsule">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">🚀</div>
+                                        <div class="text-sm">Metal Capsule</div>
+                                    </div>
+                                </div>
+                                <div class="container-option p-3 rounded-lg bg-gray-700 cursor-pointer" data-value="custom">
+                                    <div class="text-center">
+                                        <div class="text-4xl mb-2">✏️</div>
+                                        <div class="text-sm">Custom</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="container" name="container">
+                            <input type="text" id="customContainer" name="customContainer" list="containerOptions" placeholder="输入自定义容器" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-2 hidden">
+                            <datalist id="containerOptions">
+                                <optgroup label="科技容器">
+                                    <option value="holographic display cube"></option>
+                                    <option value="quantum containment field"></option>
+                                    <option value="energy matrix display"></option>
+                                    <option value="nano-tech showcase pod"></option>
+                                    <option value="plasma containment sphere"></option>
+                                </optgroup>
+                                <optgroup label="魔法容器">
+                                    <option value="enchanted crystal prism"></option>
+                                    <option value="floating arcane sphere"></option>
+                                    <option value="mystic rune cylinder"></option>
+                                    <option value="ethereal glass bell"></option>
+                                    <option value="astral projection chamber"></option>
+                                </optgroup>
+                                <optgroup label="传统容器">
+                                    <option value="antique brass display case"></option>
+                                    <option value="carved wooden box"></option>
+                                    <option value="vintage glass cabinet"></option>
+                                    <option value="ornate metal frame"></option>
+                                    <option value="crystal bell jar"></option>
+                                </optgroup>
+                                <optgroup label="未来容器">
+                                    <option value="anti-gravity display platform"></option>
+                                    <option value="time-frozen capsule"></option>
+                                    <option value="dimensional pocket display"></option>
+                                    <option value="quantum glass chamber"></option>
+                                    <option value="neo-tech showcase"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                            <div>
+                                <label for="containerMaterial" class="block text-sm font-medium text-gray-300 mb-2">Container Material</label>
+                                <div class="flex">
+                                    <input type="text" id="containerMaterial" name="containerMaterial" list="materialOptions" placeholder="e.g.: frosted glass, polished metal, aged wood" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="randomSelect('containerMaterial', 'materialOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
+                                <datalist id="materialOptions">
+                                    <optgroup label="玻璃材质">
+                                        <option value="crystal clear glass with rainbow refractions"></option>
+                                        <option value="frosted glass with ethereal glow"></option>
+                                        <option value="prismatic glass with light patterns"></option>
+                                        <option value="dichroic glass with color shifts"></option>
+                                    </optgroup>
+                                    <optgroup label="金属材质">
+                                        <option value="polished chrome with LED inlays"></option>
+                                        <option value="brushed titanium with energy circuits"></option>
+                                        <option value="rose gold with holographic details"></option>
+                                        <option value="ancient bronze with magical patina"></option>
+                                    </optgroup>
+                                    <optgroup label="特殊材质">
+                                        <option value="quantum crystal with time ripples"></option>
+                                        <option value="plasma contained in force fields"></option>
+                                        <option value="bio-luminescent crystal matrix"></option>
+                                        <option value="nano-engineered smart material"></option>
+                                    </optgroup>
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label for="containerColor" class="block text-sm font-medium text-gray-300 mb-2">Container Background</label>
+                                <div class="flex">
+                                    <input type="text" id="containerColor" name="containerColor" list="colorOptions" placeholder="e.g.: coffee brown with latte art circle" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="randomSelect('containerColor', 'colorOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
+                                <datalist id="colorOptions">
+                                    <optgroup label="科技风格">
+                                        <option value="deep space black with data streams"></option>
+                                        <option value="electric blue with circuit patterns"></option>
+                                        <option value="neon grid on dark background"></option>
+                                        <option value="holographic gradient with code"></option>
+                                    </optgroup>
+                                    <optgroup label="魔法风格">
+                                        <option value="cosmic purple with floating runes"></option>
+                                        <option value="ethereal mist with magic circles"></option>
+                                        <option value="starlit void with arcane symbols"></option>
+                                        <option value="rainbow aurora with spell effects"></option>
+                                    </optgroup>
+                                    <optgroup label="自然风格">
+                                        <option value="forest green with golden leaves"></option>
+                                        <option value="ocean blue with pearl effects"></option>
+                                        <option value="sunset gradient with clouds"></option>
+                                        <option value="crystal clear with water ripples"></option>
+                                    </optgroup>
+                                </datalist>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                            <div>
+                                <label for="containerLabel" class="block text-sm font-medium text-gray-300 mb-2">Container Label Text</label>
+                                <input type="text" id="containerLabel" name="containerLabel" placeholder="e.g.: CYBER HACKER 2077" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
+                            <div>
+                                <label for="labelColor" class="block text-sm font-medium text-gray-300 mb-2">Label Color & Style</label>
+                                <input type="text" id="labelColor" name="labelColor" placeholder="e.g.: silver uppercase, neon blue glow" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 场景选项卡 -->
+                    <div id="scene-tab" class="tab-content">
+                        <div>
+                            <label for="displayEnvironment" class="block text-sm font-medium text-gray-300 mb-2">Display Environment</label>
+                            <div class="flex">
+                                <input type="text" id="displayEnvironment" name="displayEnvironment" list="environmentOptions" placeholder="e.g.: on a wooden bookshelf, on a white marble countertop" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <button type="button" onclick="randomSelect('displayEnvironment', 'environmentOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="environmentOptions">
+                                <optgroup label="Indoor Environments">
+                                    <option value="high-tech laboratory with glowing equipment"></option>
+                                    <option value="ancient library with floating books"></option>
+                                    <option value="crystal chamber with energy flows"></option>
+                                </optgroup>
+                                <optgroup label="Outdoor Environments">
+                                    <option value="cyberpunk city street with neon signs"></option>
+                                    <option value="magical forest with glowing plants"></option>
+                                    <option value="floating islands in sunset sky"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="dioramaElements" class="block text-sm font-medium text-gray-300 mb-2">Scene Elements</label>
+                            <div class="flex">
+                                <textarea id="dioramaElements" name="dioramaElements" rows="2" placeholder="e.g.: mini cobblestone alleys with neon signs, small cityscape" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <button type="button" onclick="randomSelect('dioramaElements', 'elementOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="elementOptions">
+                                <optgroup label="Daily Life Scenes">
+                                    <option value="cozy living room with bookshelf and sofa"></option>
+                                    <option value="modern kitchen with cooking equipment"></option>
+                                    <option value="peaceful bedroom with bed and desk"></option>
+                                    <option value="busy office with computers and documents"></option>
+                                    <option value="lively cafe with customers and barista"></option>
+                                    <option value="school classroom with students and teacher"></option>
+                                    <option value="hospital ward with medical equipment"></option>
+                                    <option value="construction site with tools and materials"></option>
+                                    <option value="art studio with easels and paints"></option>
+                                    <option value="music room with instruments"></option>
+                                </optgroup>
+                                <optgroup label="Outdoor Scenes">
+                                    <option value="city park with trees and benches"></option>
+                                    <option value="busy street with shops and pedestrians"></option>
+                                    <option value="school playground with children"></option>
+                                    <option value="construction site with workers"></option>
+                                    <option value="hospital entrance with ambulances"></option>
+                                    <option value="cafe terrace with outdoor seating"></option>
+                                    <option value="art exhibition with visitors"></option>
+                                    <option value="sports field with athletes"></option>
+                                    <option value="community garden with gardeners"></option>
+                                    <option value="shopping mall with stores"></option>
+                                </optgroup>
+                                <optgroup label="Future City">
+                                    <option value="floating neon billboards with holographic ads"></option>
+                                    <option value="cyber streets with data streams and flying cars"></option>
+                                    <option value="vertical megastructures with energy bridges"></option>
+                                    <option value="underground cyber markets with glowing signs"></option>
+                                    <option value="high-tech transit systems with plasma trails"></option>
+                                </optgroup>
+                                <optgroup label="Magical World">
+                                    <option value="floating crystal islands with magical waterfalls"></option>
+                                    <option value="ancient ruins with glowing rune circles"></option>
+                                    <option value="enchanted forest with luminous creatures"></option>
+                                    <option value="mystic library with floating books"></option>
+                                    <option value="arcane laboratory with magical experiments"></option>
+                                </optgroup>
+                                <optgroup label="Sci-Fi Lab">
+                                    <option value="quantum research facility with energy cores"></option>
+                                    <option value="bio-engineering lab with specimen tanks"></option>
+                                    <option value="particle accelerator with plasma streams"></option>
+                                    <option value="robotics workshop with assembly lines"></option>
+                                    <option value="AI development center with neural networks"></option>
+                                </optgroup>
+                                <optgroup label="Natural Landscapes">
+                                    <option value="miniature mountain range with flowing rivers"></option>
+                                    <option value="bioluminescent garden with exotic plants"></option>
+                                    <option value="crystal cave system with light rays"></option>
+                                    <option value="floating islands with gravity-defying waterfalls"></option>
+                                    <option value="ethereal coral reef with glowing life forms"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="backgroundScene" class="block text-sm font-medium text-gray-300 mb-2">Background Scene</label>
+                            <div class="flex">
+                                <textarea id="backgroundScene" name="backgroundScene" rows="2" placeholder="e.g.: blurred high-tech lab, dusk city skyline" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <button type="button" onclick="randomSelect('backgroundScene', 'sceneOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="sceneOptions">
+                                <optgroup label="Future Metropolis">
+                                    <option value="cyberpunk cityscape with neon skyline at night"></option>
+                                    <option value="floating megacity with anti-gravity architecture"></option>
+                                    <option value="neo-tokyo inspired urban landscape"></option>
+                                    <option value="quantum city with time-distortion effects"></option>
+                                    <option value="digital matrix world with data visualization"></option>
+                                </optgroup>
+                                <optgroup label="Fantasy Realm">
+                                    <option value="ethereal crystal forest with aurora borealis"></option>
+                                    <option value="floating islands in magical sunset"></option>
+                                    <option value="ancient magical library with spell effects"></option>
+                                    <option value="mystical realm with multiple moons"></option>
+                                    <option value="dragon's lair with magical treasures"></option>
+                                </optgroup>
+                                <optgroup label="Sci-Fi Spaces">
+                                    <option value="space station observatory with Earth view"></option>
+                                    <option value="quantum research facility interior"></option>
+                                    <option value="alien technology hub with unknown devices"></option>
+                                    <option value="time travel facility with temporal effects"></option>
+                                    <option value="interdimensional gateway station"></option>
+                                </optgroup>
+                                <optgroup label="Nature & Surrealism">
+                                    <option value="bioluminescent alien jungle at twilight"></option>
+                                    <option value="crystal cave network with light beams"></option>
+                                    <option value="underwater ancient ruins with energy fields"></option>
+                                    <option value="floating mountains in prismatic clouds"></option>
+                                    <option value="quantum crystal garden with time flowers"></option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <label for="environmentalEffects" class="block text-sm font-medium text-gray-300 mb-2">Environmental Effects</label>
+                            <input type="text" id="environmentalEffects" name="environmentalEffects" placeholder="e.g.: subtle mist around base, light reflections on surface" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                    
+                    <!-- 图像风格选项卡 -->
+                    <div id="graphics-tab" class="tab-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="lighting" class="block text-sm font-medium text-gray-300 mb-2">Lighting Effects</label>
+                                <div class="flex">
+                                    <input type="text" id="lighting" name="lighting" list="lightingOptions" placeholder="e.g.: neon reflections from below, soft side light" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="randomSelect('lighting', 'lightingOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
+                                <datalist id="lightingOptions">
+                                    <optgroup label="自然光效">
+                                        <option value="soft ambient lighting with gentle shadows"></option>
+                                        <option value="dramatic sunlight through clouds"></option>
+                                        <option value="ethereal moonlight with mist"></option>
+                                    </optgroup>
+                                    <optgroup label="人工光效">
+                                        <option value="neon reflections from below"></option>
+                                        <option value="studio lighting with rim light"></option>
+                                        <option value="holographic light patterns"></option>
+                                    </optgroup>
+                                    <optgroup label="特效光源">
+                                        <option value="magical glowing aura"></option>
+                                        <option value="cybernetic energy emissions"></option>
+                                        <option value="crystalline light refraction"></option>
+                                    </optgroup>
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label for="cameraAngle" class="block text-sm font-medium text-gray-300 mb-2">Camera Angle</label>
+                                <div class="flex">
+                                    <input type="text" id="cameraAngle" name="cameraAngle" list="angleOptions" placeholder="e.g.: 3/4 isometric view, macro close-up" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <button type="button" onclick="randomSelect('cameraAngle', 'angleOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
+                                <datalist id="angleOptions">
+                                    <optgroup label="基础角度">
+                                        <option value="front view, slightly elevated"></option>
+                                        <option value="3/4 view with depth"></option>
+                                        <option value="dynamic side angle"></option>
+                                    </optgroup>
+                                    <optgroup label="特殊角度">
+                                        <option value="dramatic low angle shot"></option>
+                                        <option value="top-down perspective"></option>
+                                        <option value="macro close-up detail"></option>
+                                    </optgroup>
+                                </datalist>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="imageSize" class="block text-sm font-medium text-gray-300 mb-2">图像尺寸</label>
+                            <select id="imageSize" name="imageSize" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="square format (1:1)">Square (1:1)</option>
+                                <option value="portrait format (2:3)">Portrait (2:3)</option>
+                                <option value="landscape format (3:2)">Landscape (3:2)</option>
+                                <option value="widescreen format (16:9)">Widescreen (16:9)</option>
+                            </select>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="renderStyle" class="block text-sm font-medium text-gray-300 mb-2">渲染风格</label>
+                            <select id="renderStyle" name="renderStyle" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="photorealistic product photography">Photorealistic Product Photography</option>
+                                <option value="3D render with soft lighting">3D Render with Soft Lighting</option>
+                                <option value="cinematic studio lighting">Cinematic Studio Lighting</option>
+                                <option value="dramatic depth of field">Dramatic Depth of Field</option>
+                                <option value="anime style rendering">Anime Style Rendering</option>
+                                <option value="concept art style">Concept Art Style</option>
+                                <option value="high-end toy photography">High-End Toy Photography</option>
+                                <option value="miniature diorama style">Miniature Diorama Style</option>
+                            </select>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="additionalNotes" class="block text-sm font-medium text-gray-300 mb-2">附加细节</label>
+                            <div class="flex">
+                                <textarea id="additionalNotes" name="additionalNotes" rows="2" list="notesOptions" placeholder="e.g.:Product shooting style, fine texture details, shallow depth-of-field effect" class="w-full px-4 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                                <button type="button" onclick="randomSelect('additionalNotes', 'notesOptions')" class="ml-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white focus:outline-none">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                            <datalist id="notesOptions">
+                                <optgroup label="细节增强">
+                                    <option value="ultra detailed textures, high resolution output">超细节纹理，高分辨率输出</option>
+                                    <option value="subtle material reflections, surface details">细腻材质反射，表面细节</option>
+                                    <option value="intricate small details, precise edges">精致小细节，精确边缘</option>
+                                </optgroup>
+                                <optgroup label="氛围效果">
+                                    <option value="atmospheric depth, subtle fog effects">大气景深，轻微雾效</option>
+                                    <option value="dynamic composition, rule of thirds">动态构图，三分法则</option>
+                                    <option value="professional studio quality, clean background">专业工作室品质，干净背景</option>
+                                </optgroup>
+                            </datalist>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center pt-4 space-x-4">
+                    <button type="submit" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-medium text-white hover:from-blue-600 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+                        <i class="fas fa-magic mr-2"></i> Generate Prompt
+                    </button>
+                    <button type="button" onclick="showPhotoConversionGuide()" class="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-600 rounded-lg font-medium text-white hover:from-green-600 hover:to-teal-700 transition-all transform hover:scale-105 shadow-lg">
+                        <i class="fas fa-image mr-2"></i> Convert Photo to Doll
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="resultContainer" class="mt-10 bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl p-6 shadow-xl hidden fade-in">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">Generated Prompt</h2>
+                <div class="flex space-x-2 items-center relative">
+                    <button id="copyBtn" class="px-4 py-2 bg-blue-600 rounded-lg text-white hover:bg-blue-700 transition">
+                        <i class="fas fa-copy mr-2"></i>Copy
+                    </button>
+                    <div id="genCopyToast" class="hidden absolute top-full right-0 mt-2 bg-blue-500 text-white px-3 py-1 rounded-lg shadow-md flex items-center space-x-1">
+                        <i class="fas fa-smile-beam animate-bounce"></i>
+                        <span class="text-sm">Copied</span>
+                    </div>
+                </div>
+            </div>
+            <div id="generatedPrompt" class="bg-gray-700 p-4 rounded-lg text-gray-200 whitespace-pre-line"></div>
+            <div class="mt-6 flex justify-center space-x-4">
+                <a id="gptLink" href="#" target="_blank" class="inline-block px-6 py-3 bg-green-600 rounded-lg font-medium text-white hover:bg-green-700 transition-all transform hover:scale-105 shadow-lg">
+                    <i class="fas fa-robot mr-2"></i> Use ChatGPT to Generate Image
+                </a>
+            </div>
+        </div>
+
+        <!-- What is section -->
+        <div class="mt-10 bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl p-6 shadow-xl fade-in">
+            <h2 class="text-2xl font-semibold mb-4 text-white">What is AI Doll Prompt Generator?</h2>
+            <div class="space-y-4 text-gray-300">
+                <p>The AI Doll Prompt Generator is an innovative tool designed specifically for creating detailed and effective prompts for AI-generated doll images. This powerful generator helps users craft precise descriptions that produce stunning, high-quality AI doll artwork with consistent results.</p>
+                
+                <p>Unlike generic prompt generators, our AI Doll Prompt Generator focuses on the unique requirements of doll character creation, offering specialized options for character design, pose customization, and scene composition. Whether you're creating anime-style characters, realistic dolls, or fantasy figures, this tool provides the perfect starting point for your AI art generation.</p>
+                
+                <p>The generator features an intuitive interface that allows users to specify every aspect of their desired doll character, from clothing and accessories to facial expressions and poses. By breaking down the prompt creation process into logical sections, users can easily create comprehensive prompts that yield consistent, high-quality results across various AI image generation platforms.</p>
+                
+                <p>What sets our AI Doll Prompt Generator apart is its ability to maintain character consistency while allowing for creative flexibility. Users can experiment with different styles, from anime to photorealistic, while ensuring their prompts maintain the essential elements needed for successful AI doll generation.</p>
+                
+                <p>Whether you're an AI art enthusiast, a character designer, or someone looking to create unique doll characters, the AI Doll Prompt Generator provides the tools and guidance needed to bring your vision to life through AI-generated art.</p>
+            </div>
+        </div>
+
+        <!-- How to section -->
+        <div class="mt-6 bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl p-6 shadow-xl fade-in">
+            <h2 class="text-2xl font-semibold mb-4 text-white">How to Use AI Doll Prompt Generator?</h2>
+            
+            <!-- Example Image -->
+            <div class="mb-8">
+                <img src="./assets/images/example.png" 
+                     alt="AI Doll Prompt Generator Example - A beautifully crafted doll character in a detailed container"
+                     class="w-full rounded-lg shadow-lg max-w-2xl mx-auto"
+                     loading="lazy">
+                <p class="text-center text-gray-400 text-sm mt-2">Example of an AI-generated doll character created using our prompt generator</p>
+            </div>
+
+            <div class="space-y-4 text-gray-300">
+                <p>Creating stunning AI doll images with our AI Doll Prompt Generator is a straightforward process designed to help you achieve professional results. Here's a comprehensive guide to using our tool effectively:</p>
+
+                <div class="ml-4">
+                    <h3 class="text-xl font-semibold mb-2 text-blue-400">1. Character Design</h3>
+                    <p class="mb-4">Start by using the AI Doll Prompt Generator's character customization options. Select your preferred character style or create a custom one. Define the character's appearance, including clothing, facial features, and overall aesthetic. The AI Doll Prompt Generator provides detailed options to ensure your character matches your vision perfectly.</p>
+
+                    <h3 class="text-xl font-semibold mb-2 text-blue-400">2. Scene Composition</h3>
+                    <p class="mb-4">Use the AI Doll Prompt Generator's scene settings to create the perfect environment for your character. Choose from various background options, lighting conditions, and atmospheric effects. The tool helps you craft detailed scene descriptions that complement your doll character.</p>
+
+                    <h3 class="text-xl font-semibold mb-2 text-blue-400">3. Pose and Expression</h3>
+                    <p class="mb-4">With the AI Doll Prompt Generator, you can specify dynamic poses and expressive features. Select from preset poses or describe custom ones. The generator helps you create natural and engaging character positions that bring your doll to life.</p>
+
+                    <h3 class="text-xl font-semibold mb-2 text-blue-400">4. Fine-tuning Details</h3>
+                    <p class="mb-4">Enhance your prompt using the AI Doll Prompt Generator's advanced options. Add accessories, adjust lighting effects, and specify camera angles. These details help create more sophisticated and polished results in your AI-generated images.</p>
+
+                    <h3 class="text-xl font-semibold mb-2 text-blue-400">5. Generating and Refining</h3>
+                    <p>Once you've input all parameters, the AI Doll Prompt Generator will create a comprehensive prompt. Review the generated text and make any necessary adjustments. You can then use this optimized prompt with your preferred AI image generation platform for the best results.</p>
+                </div>
+
+                <p class="mt-4">Remember that the AI Doll Prompt Generator is designed to be iterative. Don't hesitate to experiment with different combinations and refine your prompts based on the results. Each adjustment helps you better understand how to create the perfect AI doll image prompt.</p>
+            </div>
+        </div>
+
+        <!-- Footer section -->
+        <div class="mt-6 bg-gray-800 bg-opacity-50 backdrop-blur-lg rounded-xl p-6 shadow-xl fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Resources Column -->
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white border-b border-blue-400 pb-2">Resources</h3>
+                    <div class="space-y-2 text-gray-300">
+                        <p class="font-medium">Using AI Doll Prompt Generator</p>
+                        <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                            <li>Quick Start Guide</li>
+                            <li>Advanced Techniques</li>
+                            <li>Prompt Examples</li>
+                            <li>Best Practices</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Features Column -->
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white border-b border-blue-400 pb-2">Key Features</h3>
+                    <div class="text-gray-300 space-y-3">
+                        <p>The AI Doll Prompt Generator offers comprehensive tools for creating detailed character prompts:</p>
+                        <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                            <li>Character Customization</li>
+                            <li>Scene Composition</li>
+                            <li>Pose Library</li>
+                            <li>Style Presets</li>
+                            <li>Export Options</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Community Column -->
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white border-b border-blue-400 pb-2">Community</h3>
+                    <div class="text-gray-300 space-y-3">
+                        <p>Join our growing community of AI Doll Prompt Generator users:</p>
+                        <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                            <li>Share Your Creations</li>
+                            <li>Get Inspiration</li>
+                            <li>Exchange Tips</li>
+                            <li>Request Features</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Information -->
+            <div class="mt-8 pt-6 border-t border-gray-700">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Updates -->
+                    <div class="text-gray-300">
+                        <h4 class="text-lg font-semibold text-white mb-2">Latest Updates</h4>
+                        <p>The AI Doll Prompt Generator is constantly evolving to provide better results. Recent improvements include:</p>
+                        <ul class="list-disc list-inside ml-2 mt-2 space-y-1 text-sm">
+                            <li>Enhanced character customization options</li>
+                            <li>Improved scene composition tools</li>
+                            <li>New style presets for various doll types</li>
+                            <li>Advanced lighting and camera controls</li>
+                        </ul>
+                    </div>
+
+                    <!-- Support -->
+                    <div class="text-gray-300">
+                        <h4 class="text-lg font-semibold text-white mb-2">Support</h4>
+                        <p>Need help with the AI Doll Prompt Generator? Our support resources include:</p>
+                        <ul class="list-disc list-inside ml-2 mt-2 space-y-1 text-sm">
+                            <li>Detailed documentation</li>
+                            <li>Video tutorials</li>
+                            <li>Community forums</li>
+                            <li>Email support</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Copyright and Links -->
+            <div class="mt-8 pt-6 border-t border-gray-700 text-center text-gray-400 text-sm">
+                <p class="mb-4">The AI Doll Prompt Generator is designed to help creators achieve consistent, high-quality results in their AI art generation.</p>
+                <div class="flex justify-center space-x-4">
+                    <a href="#" class="hover:text-blue-400 transition">Terms of Service</a>
+                    <span>|</span>
+                    <a href="#" class="hover:text-blue-400 transition">Privacy Policy</a>
+                    <span>|</span>
+                    <a href="#" class="hover:text-blue-400 transition">Contact</a>
+                </div>
+                <p class="mt-4">© 2024 AI Doll Prompt Generator. All rights reserved.</p>
+            </div>
+        </div>
+
+        <div class="mt-6 text-center text-sm text-gray-400">
+            <p>Hint: Try to describe the character costumes, container details and scene elements in detail to achieve better results</p>
+        </div>
+    </div>
+
+    <!-- 照片转换指南模态框 -->
+    <div id="photoConversionModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <!-- 复制提示Toast -->
+        <div id="copyToast" class="hidden absolute top-6 right-6 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-60 flex items-center space-x-2">
+            <i class="fas fa-smile-beam text-xl animate-bounce"></i>
+            <span class="text-sm">Copied to clipboard</span>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 max-w-2xl mx-4 relative">
+            <button onclick="closePhotoConversionGuide()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+            <h3 class="text-2xl font-bold text-white mb-4">How to Convert Photo to Doll Style</h3>
+            <div class="space-y-4 text-gray-300">
+                <p class="font-medium">Follow these steps:</p>
+                <div class="flex items-start">
+                    <ol class="list-decimal list-inside space-y-2 flex-1">
+                        <li>Prepare your photo (use a clear front-facing shot)</li>
+                        <li>Copy and fill in the following prompt template:</li>
+                        <div class="bg-gray-700 p-4 rounded-lg my-2 text-sm space-y-2">
+                            <p>Create an action figure-style starter pack set based on the character in the photo.</p>
+                            <p>Set includes one figure modeled after the photo's character, along with:</p>
+                            <input id="photoAccessories" type="text" placeholder="可填写多个配件, 如: sword, shield" class="bg-gray-600 rounded px-2 py-1 text-sm w-full md:w-2/3" />
+                            <p>The packaging box is titled:</p>
+                            <input id="photoTitle" type="text" placeholder="示例: Hero Starter Pack" class="bg-gray-600 rounded px-2 py-1 text-sm w-full md:w-1/3" />
+                            <p>in bold text.</p>
+                        </div>
+                        <div class="flex justify-end mt-2">
+                            <div class="flex items-center space-x-2">
+                                <button type="button" onclick="copyPhotoPrompt()" class="px-4 py-1 bg-blue-600 rounded-lg text-white hover:bg-blue-700 text-sm">
+                                    Copy Prompt
+                                </button>
+                                <div id="copyToast" class="hidden inline-flex items-center space-x-1 bg-blue-500 text-white px-3 py-1 rounded-lg shadow-md">
+                                    <i class="fas fa-smile-beam animate-bounce"></i>
+                                    <span class="text-sm">copied</span>
+                                </div>
+                            </div>
+                        </div>
+                        <li>Go to the ChatGPT image generation page</li>
+                        <li>Upload and select your photo</li>
+                        <li>Click the button below to open ChatGPT</li>
+                        <li>Paste the copied text into ChatGPT</li>
+                        <li>Adjust accessories and title if needed</li>
+                        <li>Click generate and download your Doll image</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button type="button" onclick="window.open('https://chat.openai.com','_blank')" class="px-4 py-2 bg-green-600 rounded-lg text-white hover:bg-green-700 transition">
+                    Use ChatGPT to Generate Image
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // 选项卡切换
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const tabId = this.getAttribute('data-tab');
+                
+                // 切换按钮状态
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // 切换内容状态
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // 容器选择器交互
+        document.querySelectorAll('.container-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.container-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                this.classList.add('selected');
+                
+                const value = this.getAttribute('data-value');
+                document.getElementById('container').value = value;
+                
+                const customContainer = document.getElementById('customContainer');
+                if (value === 'custom') {
+                    customContainer.classList.remove('hidden');
+                } else {
+                    customContainer.classList.add('hidden');
+                }
+            });
+        });
+
+        // 表单提交
+        document.getElementById('promptForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            // 生成提示词
+            let prompt = `Create a highly detailed image of a collectible figurine in a "ai doll" packaging. 
+The result should resemble a real-world product with physical packaging, styled as a premium studio rendering. The box is fully displayed on the screen.
+
+All elements — the figure, accessories, and diorama — should appear in a solid, collectible 3D figure style with hard or matte plastic textures, visible seams, and toy-like physical presence.
+
+`;
+            
+            // 容器部分
+            prompt += `The figure is encased in a ${data.container === 'custom' ? data.customContainer : data.container} display`;
+            
+            if (data.containerMaterial) {
+                prompt += ` made of ${data.containerMaterial}`;
+            }
+            
+            if (data.containerColor) {
+                prompt += `, with background design of ${data.containerColor}`;
+            }
+            
+            if (data.containerLabel) {
+                prompt += `, and a title label`;
+                
+                if (data.labelColor) {
+                    prompt += ` in ${data.labelColor}`;
+                } else {
+                    prompt += ` in silver capitals`;
+                }
+                
+                prompt += ` reading "${data.containerLabel}"`;
+            }
+            
+            prompt += `.\n\n`;
+            
+            // 角色部分
+            const characterStyle = data.characterStyle === 'custom' ? data.customCharacterStyle : data.characterStyle;
+            prompt += `The character is styled as a ${characterStyle}`;
+            
+            if (data.characterName) {
+                prompt += ` named "${data.characterName}"`;
+            }
+            
+            if (data.clothingDescription) {
+                prompt += `, wearing ${data.clothingDescription}`;
+            }
+            
+            if (data.characterPose) {
+                prompt += `, posed ${data.characterPose}`;
+            }
+            
+            prompt += `.\n\n`;
+            
+            // 配件部分
+            if (data.accessories) {
+                prompt += `Accessories displayed include: ${data.accessories}.\n\n`;
+            }
+            
+            // 场景部分
+            if (data.displayEnvironment) {
+                prompt += `The container is placed ${data.displayEnvironment}`;
+                
+                if (data.backgroundScene) {
+                    prompt += `, with ${data.backgroundScene} in the background`;
+                }
+                
+                prompt += `.\n\n`;
+            }
+            
+            if (data.dioramaElements) {
+                prompt += `Inside the container is a miniature diorama featuring: ${data.dioramaElements}.\n\n`;
+            }
+            
+            if (data.environmentalEffects) {
+                prompt += `Environmental effects: ${data.environmentalEffects}.\n\n`;
+            }
+            
+            // 图像风格部分
+            if (data.lighting || data.cameraAngle || data.renderStyle || data.imageSize) {
+                prompt += `Image specifications: `;
+                
+                if (data.lighting) {
+                    prompt += `lighting is ${data.lighting}`;
+                    
+                    if (data.cameraAngle || data.renderStyle || data.imageSize) {
+                        prompt += `, `;
+                    } else {
+                        prompt += `. `;
+                    }
+                }
+                
+                if (data.cameraAngle) {
+                    prompt += `the scene is captured from a ${data.cameraAngle} angle`;
+                    
+                    if (data.renderStyle || data.imageSize) {
+                        prompt += `, `;
+                    } else {
+                        prompt += `. `;
+                    }
+                }
+                
+                if (data.renderStyle) {
+                    prompt += `rendered in ${data.renderStyle} style`;
+                    
+                    if (data.imageSize) {
+                        prompt += `, `;
+                    } else {
+                        prompt += `. `;
+                    }
+                }
+                
+                if (data.imageSize) {
+                    prompt += `in ${data.imageSize}`;
+                }
+                
+                prompt += `.\n\n`;
+            }
+            
+            // 附加细节
+            if (data.additionalNotes) {
+                prompt += `Additional notes: ${data.additionalNotes}`;
+            }
+            
+            // 显示结果
+            document.getElementById('generatedPrompt').textContent = prompt;
+            document.getElementById('resultContainer').classList.remove('hidden');
+            
+            // 设置链接
+            document.getElementById('gptLink').href = `https://chat.openai.com/?q=${encodeURIComponent(prompt)}`;
+            
+            // 滚动到结果
+            document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // 复制功能
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const prompt = document.getElementById('generatedPrompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                const toast = document.getElementById('genCopyToast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2000);
+            });
+        });
+
+        // 保存功能
+        document.getElementById('saveBtn').addEventListener('click', function() {
+            const prompt = document.getElementById('generatedPrompt').textContent;
+            const history = JSON.parse(localStorage.getItem('promptHistory') || '[]');
+            history.unshift({
+                prompt: prompt,
+                timestamp: new Date().toISOString()
+            });
+            
+            if (history.length > 10) history.pop();
+            localStorage.setItem('promptHistory', JSON.stringify(history));
+            
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check mr-2"></i>已保存';
+            setTimeout(() => {
+                this.innerHTML = originalText;
+            }, 2000);
+        });
+
+        // 粒子效果
+        particlesJS('particles-js', {
+            particles: {
+                number: { value: 80, density: { enable: true, value_area: 800 } },
+                color: { value: "#3b82f6" },
+                shape: { type: "circle" },
+                opacity: { value: 0.5, random: true },
+                size: { value: 3, random: true },
+                line_linked: { enable: true, distance: 150, color: "#3b82f6", opacity: 0.4, width: 1 },
+                move: { enable: true, speed: 2, direction: "none", random: true, straight: false, out_mode: "out" }
+            },
+            interactivity: {
+                detect_on: "canvas",
+                events: {
+                    onhover: { enable: true, mode: "grab" },
+                    onclick: { enable: true, mode: "push" }
+                },
+                modes: {
+                    grab: { distance: 140, line_linked: { opacity: 1 } },
+                    push: { particles_nb: 4 }
+                }
+            }
+        });
+
+        // 随机选择函数
+        function randomSelect(inputId, datalistId) {
+            const input = document.getElementById(inputId);
+            const datalist = document.getElementById(datalistId);
+            const options = Array.from(datalist.querySelectorAll('option'));
+            
+            if (options.length > 0) {
+                const randomIndex = Math.floor(Math.random() * options.length);
+                input.value = options[randomIndex].value;
+            }
+        }
+
+        // 全局随机函数
+        function randomizeAll() {
+            // 角色相关
+            randomSelect('characterStyle', 'styleOptions');
+            randomSelect('clothingDescription', 'clothingOptions');
+            randomSelect('characterPose', 'poseOptions');
+            randomSelect('accessories', 'accessoryOptions');
+            
+            // 容器相关
+            const containerOptions = document.querySelectorAll('.container-option');
+            if (containerOptions.length > 0) {
+                const randomIndex = Math.floor(Math.random() * containerOptions.length);
+                containerOptions.forEach(opt => opt.classList.remove('selected'));
+                containerOptions[randomIndex].classList.add('selected');
+                document.getElementById('container').value = containerOptions[randomIndex].getAttribute('data-value');
+            }
+            randomSelect('containerMaterial', 'materialOptions');
+            randomSelect('containerColor', 'colorOptions');
+            
+            // 场景相关
+            randomSelect('displayEnvironment', 'environmentOptions');
+            randomSelect('dioramaElements', 'elementOptions');
+            randomSelect('backgroundScene', 'sceneOptions');
+            
+            // 图像风格相关
+            randomSelect('lighting', 'lightingOptions');
+            randomSelect('cameraAngle', 'angleOptions');
+            randomSelect('additionalNotes', 'notesOptions');
+            
+            // 随机选择图像尺寸
+            const imageSize = document.getElementById('imageSize');
+            const sizeOptions = imageSize.options;
+            const randomSizeIndex = Math.floor(Math.random() * sizeOptions.length);
+            imageSize.selectedIndex = randomSizeIndex;
+            
+            // 随机选择渲染风格
+            const renderStyle = document.getElementById('renderStyle');
+            const styleOptions = renderStyle.options;
+            const randomStyleIndex = Math.floor(Math.random() * styleOptions.length);
+            renderStyle.selectedIndex = randomStyleIndex;
+        }
+
+        // 显示照片转换指南
+        function showPhotoConversionGuide() {
+            const modal = document.getElementById('photoConversionModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // 关闭照片转换指南
+        function closePhotoConversionGuide() {
+            const modal = document.getElementById('photoConversionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 复制照片转换提示词
+        function copyPhotoPrompt() {
+            let accessories = document.getElementById('photoAccessories').value.trim();
+            let title = document.getElementById('photoTitle').value.trim();
+            if (!accessories) accessories = 'Accessories related to characters';
+            if (!title) title = 'starter pack';
+            const prompt = `Create an action figure-style starter pack set based on the character in the photo. The set includes one figure modeled after the photo's character, along with ${accessories}. The packaging box is titled ${title} in bold text.`;
+            navigator.clipboard.writeText(prompt).then(() => {
+                const toast = document.getElementById('copyToast');
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 2000);
+            });
+        }
+    </script>
+</body>
+</html>
